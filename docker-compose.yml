@@ -1,0 +1,9 @@
+services:
+  crawler:
+    build: .
+    volumes:
+      - ./app:/app
+    ports:
+      - '8080:80'
+    command: python app.py
+    tty: true
