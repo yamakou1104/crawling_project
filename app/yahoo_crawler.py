@@ -2,7 +2,11 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 
-sys.stdout.reconfigure(line_buffering=True)  # ログをリアルタイムで表示
+# Python 3.7以降の場合は以下を使用
+# sys.stdout.reconfigure(line_buffering=True)
+# 互換性のために以下を使用
+import os
+os.environ['PYTHONUNBUFFERED'] = '1'  # 標準出力をバッファリングしない
 
 URL = "https://news.yahoo.co.jp/expert/articles/31a65afbecc42b3780a6761a39f0c511a0f20948"
 HEADERS = {
