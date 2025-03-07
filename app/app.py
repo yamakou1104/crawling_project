@@ -15,6 +15,23 @@ logging.basicConfig(
     ]
 )
 
+def normalize_japanese_text(text):
+    """日本語テキストを正規化する
+    
+    ひらがな、カタカナ、漢字などの異なる文字種を統一的に扱うための正規化を行います。
+    現在の実装では、すべてのカタカナをひらがなに変換します。
+    """
+    if not text:
+        return text
+    
+    import jaconv
+    # カタカナをひらがなに変換
+    normalized_text = jaconv.z2h(text, kana=False, digit=True, ascii=True)  # 全角英数字を半角に変換
+    normalized_text = jaconv.kata2hira(normalized_text)  # カタカナをひらがなに変換
+    
+    return normalized_text
+
+
 def filter_content_by_keyword(data, keyword):
     """キーワードに基づいてコンテンツをフィルタリングする"""
     if not keyword:
@@ -23,22 +40,30 @@ def filter_content_by_keyword(data, keyword):
     
     # キーワードを小文字に変換（大文字小文字を区別しない検索のため）
     keyword_lower = keyword.lower()
+    # 日本語キーワードを正規化
+    normalized_keyword = normalize_japanese_text(keyword_lower)
     
     # コンテンツにキーワードが含まれているかチェック
     if 'content' in data and data['content']:
-        if keyword_lower in data['content'].lower():
+        content_lower = data['content'].lower()
+        normalized_content = normalize_japanese_text(content_lower)
+        if keyword_lower in content_lower or (normalized_keyword and normalized_keyword in normalized_content):
             logging.info(f"キーワード '{keyword}' が本文に見つかりました。")
             return data
     
     # タイトルにキーワードが含まれているかチェック
     if 'title' in data and data['title']:
-        if keyword_lower in data['title'].lower():
+        title_lower = data['title'].lower()
+        normalized_title = normalize_japanese_text(title_lower)
+        if keyword_lower in title_lower or (normalized_keyword and normalized_keyword in normalized_title):
             logging.info(f"キーワード '{keyword}' がタイトルに見つかりました。")
             return data
     
     # 説明にキーワードが含まれているかチェック
     if 'description' in data and data['description']:
-        if keyword_lower in data['description'].lower():
+        description_lower = data['description'].lower()
+        normalized_description = normalize_japanese_text(description_lower)
+        if keyword_lower in description_lower or (normalized_keyword and normalized_keyword in normalized_description):
             logging.info(f"キーワード '{keyword}' が説明に見つかりました。")
             return data
     
