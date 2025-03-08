@@ -1,1 +1,5 @@
 beautifulsoup4
+requests
+argparse
+urllib3
+jaconv

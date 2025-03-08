@@ -5,5 +5,5 @@ services:
       - ./app:/app
     ports:
       - '8080:80'
-    command: python app.py
+    command: python app.py "https://news.yahoo.co.jp/pickup/6531680" --verbose
     tty: true
