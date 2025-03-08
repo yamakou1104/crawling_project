@@ -1,0 +1,26 @@
+# Yahoo News Article Extraction Research Findings
+
+## Article Body
+From the research, I found that the article body content can be extracted using:
+
+1. The article tag contains the full article content
+2. Paragraphs within the article contain the actual text content
+3. The third paragraph (index 2) contains the main article text
+
+## Images
+For images, I found:
+
+1. The main article image is in a figure element
+2. The image URL can be found at index 3 in the list of images: 
+   - https://newsatcl-pctr.c.yimg.jp/t/iwiz-yn/rpr/kubotahiroyuki/02117088/title-1740706712438.jpeg?exp=10800
+3. This image has the class 'sc-1fea4ol-16 iUhuPO'
+4. The image is also contained within a figure element with a caption
+
+## Selectors to Use
+For article body:
+- Find all paragraphs and extract the third one (index 2) which contains the main article text
+- Additional paragraphs may also contain article content
+
+For images:
+- Find all images and filter for those with URLs containing 'newsatcl-pctr' or similar patterns
+- Alternatively, find all figure elements and extract their images

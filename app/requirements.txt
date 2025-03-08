@@ -2,4 +2,8 @@ beautifulsoup4
 requests
 argparse
 urllib3
+<<<<<<< HEAD
 jaconv
+=======
+jaconv
+>>>>>>> 4804a5634bfd6d7799d786cb093562d525b225ba
