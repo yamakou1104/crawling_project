@@ -367,6 +367,54 @@ def filter_content_by_keyword(data, keyword):
     logging.info(f"キーワード '{keyword}' が見つかりませんでした。")
     return None
 
+def summarize_content(data, api_key, language='Japanese', max_length=200, style='bullet'):
+    """Gemini APIを使用してコンテンツを要約する"""
+    try:
+        import google.generativeai as genai
+        
+        # APIキーの設定
+        genai.configure(api_key=api_key)
+        
+        # モデルの選択
+        model = genai.GenerativeModel('models/gemini-1.5-pro')
+        
+        # 要約するコンテンツの準備
+        content_to_summarize = f"Title: {data.get('title', '')}\n"
+        if data.get('description'):
+            content_to_summarize += f"Description: {data.get('description')}\n"
+        if data.get('content'):
+            content_to_summarize += f"Content: {data.get('content')}\n"
+        
+        # 要約スタイルに基づいてプロンプトを作成
+        if style == 'bullet':
+            prompt = f"Summarize this text in {language} in 3-5 bullet points: \"{content_to_summarize}\""
+        elif style == 'paragraph':
+            prompt = f"Summarize this text in {language} in a short paragraph: \"{content_to_summarize}\""
+        elif style == 'headline':
+            prompt = f"Summarize this text in {language} in a single headline (30 characters or less): \"{content_to_summarize}\""
+        else:
+            prompt = f"Summarize this text in {language}: \"{content_to_summarize}\""
+        
+        # 生成パラメータの設定
+        generation_config = {
+            'temperature': 0.2,  # 決定的な出力のために低い温度
+            'max_output_tokens': max_length,  # 出力の長さ制限
+            'top_p': 0.95,  # 核サンプリング
+        }
+        
+        # 要約の生成
+        response = model.generate_content(prompt, generation_config=generation_config)
+        
+        # 要約を返す
+        return response.text
+        
+    except ImportError:
+        logging.error("google-generativeaiパッケージがインストールされていません。pip install google-generativeaiでインストールしてください。")
+        return None
+    except Exception as e:
+        logging.error(f"要約中にエラーが発生しました: {e}")
+        return None
+
 def main():
     parser = argparse.ArgumentParser(description='キーワードフィルタリング付きWebスクレイパー')
     parser.add_argument('url', help='スクレイピングするWebサイトのURL')
@@ -377,6 +425,15 @@ def main():
     parser.add_argument('--keyword', '-k', help='フィルタリングするキーワード')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='詳細なログ出力を有効にする（DEBUGレベル）')
+    
+    # 要約機能の引数を追加
+    parser.add_argument('--summarize', '-s', action='store_true', help='Gemini APIを使用してコンテンツを要約する')
+    parser.add_argument('--api-key', '-a', help='Gemini API Key（環境変数GEMINI_API_KEYでも設定可能）')
+    parser.add_argument('--summary-language', '-sl', default='Japanese', help='要約の言語（デフォルト: Japanese）')
+    parser.add_argument('--summary-style', '-ss', choices=['bullet', 'paragraph', 'headline'], default='bullet', 
+                        help='要約のスタイル（デフォルト: bullet）')
+    parser.add_argument('--summary-length', '-slen', type=int, default=200, 
+                        help='要約の最大トークン数（デフォルト: 200）')
     
     args = parser.parse_args()
     
@@ -419,6 +476,34 @@ def main():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         json_filename = f"{args.output_dir}/{domain}_{timestamp}_filtered.json"
         csv_filename = f"{args.output_dir}/{domain}_{timestamp}_filtered.csv"
+        
+        # 要約機能が有効な場合
+        if args.summarize:
+            # APIキーの取得（コマンドライン引数 > 環境変数）
+            api_key = args.api_key or os.environ.get('GEMINI_API_KEY')
+            
+            if not api_key:
+                logging.error("Gemini APIキーが指定されていません。--api-keyオプションまたは環境変数GEMINI_API_KEYで設定してください。")
+            else:
+                # コンテンツの要約
+                summary = summarize_content(
+                    filtered_result, 
+                    api_key, 
+                    language=args.summary_language,
+                    max_length=args.summary_length,
+                    style=args.summary_style
+                )
+                
+                if summary:
+                    # 要約を結果に追加
+                    filtered_result['summary'] = summary
+                    logging.info(f"コンテンツの要約:\n{summary}")
+                    
+                    # 要約のみのファイルも保存
+                    summary_filename = f"{args.output_dir}/{domain}_{timestamp}_summary.txt"
+                    with open(summary_filename, 'w', encoding='utf-8') as f:
+                        f.write(summary)
+                    logging.info(f"✅ 要約を保存しました: {summary_filename}")
         
         # JSONとCSVに保存
         save_to_json(filtered_result, json_filename)
