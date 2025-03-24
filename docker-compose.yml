@@ -3,7 +3,22 @@ services:
     build: .
     volumes:
       - ./app:/app
+      - ./app/data:/app/data
     ports:
       - '8080:80'
-    command: python app.py "https://news.yahoo.co.jp/pickup/6531680" --verbose
+    command: python app.py
+    environment:
+      - SCRAPER_URL=https://news.yahoo.co.jp/pickup/6531680
+      - SCRAPER_OUTPUT_DIR=data
+      - SCRAPER_MIN_TEXT_LENGTH=50
+      - SCRAPER_DELAY=1
+      # - SCRAPER_USER_AGENT=カスタムユーザーエージェント（必要に応じて設定）
+      # - SCRAPER_KEYWORD=フィルタリングキーワード（必要に応じて設定）
+      - SCRAPER_VERBOSE=true
+      # 要約機能を使用する場合（オプション）
+      # - SCRAPER_SUMMARIZE=true
+      # - GEMINI_API_KEY=あなたのGemini APIキー
+      # - SCRAPER_SUMMARY_LANGUAGE=Japanese
+      # - SCRAPER_SUMMARY_STYLE=bullet
+      # - SCRAPER_SUMMARY_LENGTH=200
     tty: true
