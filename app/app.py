@@ -416,82 +416,82 @@ def summarize_content(data, api_key, language='Japanese', max_length=200, style=
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description='キーワードフィルタリング付きWebスクレイパー')
-    parser.add_argument('url', help='スクレイピングするWebサイトのURL')
-    parser.add_argument('--output-dir', '-o', default='data', help='出力ディレクトリ（デフォルト: data）')
-    parser.add_argument('--min-text-length', '-m', type=int, default=50, help='本文として扱う最小テキスト長（デフォルト: 50）')
-    parser.add_argument('--delay', '-d', type=float, default=1, help='リクエスト間の待機時間（秒）（デフォルト: 1）')
-    parser.add_argument('--user-agent', '-u', help='カスタムユーザーエージェント')
-    parser.add_argument('--keyword', '-k', help='フィルタリングするキーワード')
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help='詳細なログ出力を有効にする（DEBUGレベル）')
+    import os
     
-    # 要約機能の引数を追加
-    parser.add_argument('--summarize', '-s', action='store_true', help='Gemini APIを使用してコンテンツを要約する')
-    parser.add_argument('--api-key', '-a', help='Gemini API Key（環境変数GEMINI_API_KEYでも設定可能）')
-    parser.add_argument('--summary-language', '-sl', default='Japanese', help='要約の言語（デフォルト: Japanese）')
-    parser.add_argument('--summary-style', '-ss', choices=['bullet', 'paragraph', 'headline'], default='bullet', 
-                        help='要約のスタイル（デフォルト: bullet）')
-    parser.add_argument('--summary-length', '-slen', type=int, default=200, 
-                        help='要約の最大トークン数（デフォルト: 200）')
+    # 環境変数から設定を読み込む（デフォルト値付き）
+    url = os.environ.get('SCRAPER_URL')
+    output_dir = os.environ.get('SCRAPER_OUTPUT_DIR', 'data')
+    min_text_length = int(os.environ.get('SCRAPER_MIN_TEXT_LENGTH', '50'))
+    delay = float(os.environ.get('SCRAPER_DELAY', '1'))
+    user_agent = os.environ.get('SCRAPER_USER_AGENT')
+    keyword = os.environ.get('SCRAPER_KEYWORD')
+    verbose = os.environ.get('SCRAPER_VERBOSE', 'false').lower() == 'true'
     
-    args = parser.parse_args()
+    # 要約機能の設定
+    summarize = os.environ.get('SCRAPER_SUMMARIZE', 'false').lower() == 'true'
+    api_key = os.environ.get('GEMINI_API_KEY')
+    summary_language = os.environ.get('SCRAPER_SUMMARY_LANGUAGE', 'Japanese')
+    summary_style = os.environ.get('SCRAPER_SUMMARY_STYLE', 'bullet')
+    summary_length = int(os.environ.get('SCRAPER_SUMMARY_LENGTH', '200'))
     
-    # --verbose が指定されたらログレベルをDEBUGに
-    if args.verbose:
+    # URLが指定されていない場合はエラーを表示して終了
+    if not url:
+        logging.error("環境変数SCRAPER_URLが設定されていません。")
+        return
+    
+    # 詳細ログ出力の設定
+    if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
     # スクレイピングの実行
-    logging.info(f"{args.url} のスクレイピングを開始します...")
+    logging.info(f"{url} のスクレイピングを開始します...")
     result = scrape_website(
-        url=args.url,
-        output_dir=args.output_dir,
-        min_text_length=args.min_text_length,
-        delay=args.delay,
-        user_agent=args.user_agent
+        url=url,
+        output_dir=output_dir,
+        min_text_length=min_text_length,
+        delay=delay,
+        user_agent=user_agent
     )
     
     if not result:
         logging.error("スクレイピングに失敗しました。")
         return
     
-    # キーワードの入力を促す（コマンドライン引数で指定されていない場合）
-    keyword = args.keyword
-    if not keyword:
-        keyword = input("フィルタリングするキーワードを入力してください: ")
-    
-    # キーワードでフィルタリング
-    filtered_result = filter_content_by_keyword(result, keyword)
+    # キーワードでフィルタリング（環境変数から取得）
+    filtered_result = None
+    if keyword:
+        logging.info(f"キーワード '{keyword}' でフィルタリングします...")
+        filtered_result = filter_content_by_keyword(result, keyword)
+    else:
+        logging.info("キーワードが指定されていないため、フィルタリングなしで処理します...")
+        filtered_result = result
     
     if filtered_result:
         logging.info(f"キーワード '{keyword}' を含むコンテンツが見つかりました。")
         
         # 保存用のディレクトリを作成
-        os.makedirs(args.output_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         
         # ドメイン名を取得してファイル名に使用
-        domain = urlparse(args.url).netloc.replace('.', '_')
+        domain = urlparse(url).netloc.replace('.', '_')
         
         # タイムスタンプを含むファイル名を生成
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        json_filename = f"{args.output_dir}/{domain}_{timestamp}_filtered.json"
-        csv_filename = f"{args.output_dir}/{domain}_{timestamp}_filtered.csv"
+        json_filename = f"{output_dir}/{domain}_{timestamp}_filtered.json"
+        csv_filename = f"{output_dir}/{domain}_{timestamp}_filtered.csv"
         
         # 要約機能が有効な場合
-        if args.summarize:
-            # APIキーの取得（コマンドライン引数 > 環境変数）
-            api_key = args.api_key or os.environ.get('GEMINI_API_KEY')
-            
+        if summarize:
             if not api_key:
-                logging.error("Gemini APIキーが指定されていません。--api-keyオプションまたは環境変数GEMINI_API_KEYで設定してください。")
+                logging.error("Gemini APIキーが指定されていません。環境変数GEMINI_API_KEYで設定してください。")
             else:
                 # コンテンツの要約
                 summary = summarize_content(
                     filtered_result, 
                     api_key, 
-                    language=args.summary_language,
-                    max_length=args.summary_length,
-                    style=args.summary_style
+                    language=summary_language,
+                    max_length=summary_length,
+                    style=summary_style
                 )
                 
                 if summary:
@@ -500,7 +500,7 @@ def main():
                     logging.info(f"コンテンツの要約:\n{summary}")
                     
                     # 要約のみのファイルも保存
-                    summary_filename = f"{args.output_dir}/{domain}_{timestamp}_summary.txt"
+                    summary_filename = f"{output_dir}/{domain}_{timestamp}_summary.txt"
                     with open(summary_filename, 'w', encoding='utf-8') as f:
                         f.write(summary)
                     logging.info(f"✅ 要約を保存しました: {summary_filename}")
