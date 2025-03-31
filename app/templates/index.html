@@ -53,6 +53,17 @@
                 <form action="/run_now" method="post">
                     <button type="submit" class="btn btn-primary mb-4">今すぐスクレイピングを実行</button>
                 </form>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4>実行中のタスク</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="active-tasks">
+                            <p>現在実行中のタスクはありません。</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="col-md-4">
@@ -130,6 +141,105 @@ https://news.yahoo.co.jp/pickup/world</textarea>
             } else {
                 customDiv.style.display = 'none';
             }
+        });
+
+        // タスク管理
+        const activeTasks = {};
+
+        // タスクを追加
+        function addTask(taskId) {
+            if (!activeTasks[taskId]) {
+                activeTasks[taskId] = {
+                    id: taskId,
+                    status: 'PENDING',
+                    startTime: new Date()
+                };
+                updateTaskDisplay();
+                // ステータスの定期的な更新を開始
+                checkTaskStatus(taskId);
+            }
+        }
+
+        // タスクを削除
+        function removeTask(taskId) {
+            if (activeTasks[taskId]) {
+                delete activeTasks[taskId];
+                updateTaskDisplay();
+            }
+        }
+
+        // タスク表示を更新
+        function updateTaskDisplay() {
+            const tasksDiv = document.getElementById('active-tasks');
+            
+            if (Object.keys(activeTasks).length === 0) {
+                tasksDiv.innerHTML = '<p>現在実行中のタスクはありません。</p>';
+                return;
+            }
+            
+            let html = '<table class="table table-striped">';
+            html += '<thead><tr><th>タスクID</th><th>ステータス</th><th>開始時間</th><th>アクション</th></tr></thead>';
+            html += '<tbody>';
+            
+            for (const taskId in activeTasks) {
+                const task = activeTasks[taskId];
+                const startTime = task.startTime.toLocaleTimeString();
+                
+                html += `<tr>
+                    <td>${taskId.substring(0, 8)}...</td>
+                    <td>${task.status}</td>
+                    <td>${startTime}</td>
+                    <td>
+                        <form action="/stop_task/${taskId}" method="post">
+                            <button type="submit" class="btn btn-danger btn-sm">停止</button>
+                        </form>
+                    </td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            tasksDiv.innerHTML = html;
+        }
+
+        // タスクのステータスを確認
+        function checkTaskStatus(taskId) {
+            fetch(`/task_status/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (activeTasks[taskId]) {
+                        activeTasks[taskId].status = data.state;
+                        updateTaskDisplay();
+                        
+                        // 完了または失敗したタスクは30秒後に削除
+                        if (['SUCCESS', 'FAILURE', 'REVOKED'].includes(data.state)) {
+                            setTimeout(() => removeTask(taskId), 30000);
+                        } else {
+                            // まだ実行中の場合は5秒後に再確認
+                            setTimeout(() => checkTaskStatus(taskId), 5000);
+                        }
+                    }
+                })
+                .catch(error => console.error('Error checking task status:', error));
+        }
+
+        // 「今すぐ実行」ボタンのフォーム送信をインターセプト
+        document.querySelector('form[action="/run_now"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            fetch('/run_now', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.task_id) {
+                    addTask(data.task_id);
+                    alert('スクレイピングタスクが開始されました');
+                }
+            })
+            .catch(error => console.error('Error starting task:', error));
         });
     </script>
 </body>

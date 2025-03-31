@@ -1,0 +1,12 @@
+{
+  "urls": [
+    "https://news.yahoo.co.jp/pickup/domestic",
+    "https://news.yahoo.co.jp/pickup/world"
+  ],
+  "schedule": 3600,
+  "output_dir": "data",
+  "min_text_length": 50,
+  "delay": 1,
+  "keyword": null,
+  "summarize": false
+}

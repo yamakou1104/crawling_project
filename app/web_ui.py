@@ -45,7 +45,8 @@ def index():
     return render_template('index.html', 
                           config=config, 
                           schedule_intervals=SCHEDULE_INTERVALS,
-                          schedule_name=schedule_name)
+                          schedule_name=schedule_name,
+                          active_tasks=[])
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
@@ -110,6 +111,10 @@ def run_now():
         summarize=config['summarize']
     )
     
+    # JSONレスポンスを返す場合
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({'task_id': task.id, 'status': 'PENDING'})
+    
     flash(f'スクレイピングタスクが開始されました (タスクID: {task.id})', 'success')
     return redirect(url_for('index'))
 
@@ -122,6 +127,26 @@ def task_status(task_id):
         'info': str(task.info) if task.info else None
     }
     return jsonify(response)
+
+@app.route('/stop_task/<task_id>', methods=['POST', 'GET'])
+def stop_task(task_id):
+    """実行中のタスクを停止する"""
+    try:
+        # タスクを取り消し（強制終了）
+        celery_app.control.revoke(task_id, terminate=True)
+        
+        # JSONレスポンスを返す場合
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({'success': True, 'message': f'タスク {task_id} の停止を要求しました'})
+            
+        flash(f'タスク {task_id} の停止を要求しました', 'success')
+    except Exception as e:
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({'success': False, 'error': str(e)}), 500
+            
+        flash(f'タスクの停止に失敗しました: {str(e)}', 'danger')
+    
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     # テンプレートディレクトリが存在しない場合は作成
