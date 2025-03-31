@@ -1,4 +1,5 @@
 services:
+  # スクレイピングサービス
   crawler:
     build: .
     volumes:
@@ -22,3 +23,57 @@ services:
       - SCRAPER_SUMMARY_STYLE=bullet
       - SCRAPER_SUMMARY_LENGTH=200
     tty: true
+    depends_on:
+      - redis
+
+  # Celeryワーカー
+  celery_worker:
+    build: .
+    volumes:
+      - ./app:/app
+      - ./app/data:/app/data
+    command: celery -A celery_app worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  # Celeryスケジューラ
+  celery_beat:
+    build: .
+    volumes:
+      - ./app:/app
+    command: celery -A celery_app beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  # Redisサーバー（メッセージブローカー）
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Flask Web UI
+  web_ui:
+    build: .
+    volumes:
+      - ./app:/app
+      - ./app/data:/app/data
+    ports:
+      - "5000:5000"
+    command: python web_ui.py
+    environment:
+      - FLASK_SECRET_KEY=dev_key_for_crawler
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:
