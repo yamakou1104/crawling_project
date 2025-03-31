@@ -219,7 +219,7 @@ https://news.yahoo.co.jp/pickup/world</textarea>
                         }
                     }
                 })
-                .catch(error => console.error('Error checking task status:', error));
+                .catch(error => console.error('タスクステータス確認エラー:', error));
         }
 
         // 「今すぐ実行」ボタンのフォーム送信をインターセプト
@@ -239,7 +239,7 @@ https://news.yahoo.co.jp/pickup/world</textarea>
                     alert('スクレイピングタスクが開始されました');
                 }
             })
-            .catch(error => console.error('Error starting task:', error));
+            .catch(error => console.error('タスク開始エラー:', error));
         });
     </script>
 </body>
