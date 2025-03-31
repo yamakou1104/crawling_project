@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     cmake \
     && apt-get clean
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pyngrok>=7.0.0
 
 EXPOSE 80 5000
 

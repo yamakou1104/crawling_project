@@ -1,12 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import os
 import json
+import threading
+import time
 from config import DEFAULT_URLS, SCHEDULE_INTERVALS, DEFAULT_SCHEDULE
 from celery_app import app as celery_app
 from tasks import scrape_url, scrape_scheduled_urls
+from pyngrok import ngrok
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev_key_for_crawler')
+
+# ngrokの公開URL
+public_url = None
 
 # 設定ファイルのパス
 CONFIG_FILE = 'scheduler_config.json'
@@ -42,11 +48,15 @@ def index():
         if seconds == config['schedule']:
             schedule_name = name
     
+    # ngrok URLを取得
+    ngrok_url = app.config.get('NGROK_URL', None)
+    
     return render_template('index.html', 
                           config=config, 
                           schedule_intervals=SCHEDULE_INTERVALS,
                           schedule_name=schedule_name,
-                          active_tasks=[])
+                          active_tasks=[],
+                          ngrok_url=ngrok_url)
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
@@ -148,6 +158,61 @@ def stop_task(task_id):
     
     return redirect(url_for('index'))
 
+def start_ngrok():
+    """ngrokトンネルを開始し、公開URLを取得する"""
+    global public_url
+    try:
+        # 環境変数からngrokのauthトークンを取得（設定されていない場合はデモモードで動作）
+        auth_token = os.environ.get('NGROK_AUTH_TOKEN')
+        
+        if auth_token:
+            # 認証トークンが設定されている場合は使用
+            ngrok.set_auth_token(auth_token)
+            print(f"✅ ngrok認証トークンを設定しました")
+            
+            # ngrokトンネルを開始
+            http_tunnel = ngrok.connect(5000)
+            public_url = http_tunnel.public_url
+            print(f"✅ ngrok公開URL: {public_url}")
+            
+            # 起動情報をテンプレートに渡すためにグローバル変数に保存
+            app.config['NGROK_URL'] = public_url
+            
+            # ngrokトンネル情報をログに記録
+            tunnels = ngrok.get_tunnels()
+            for tunnel in tunnels:
+                print(f"🔗 ngrokトンネル: {tunnel.public_url} -> {tunnel.config['addr']}")
+                
+            return public_url
+        else:
+            # 認証トークンが設定されていない場合はデモモードで動作
+            print("⚠️ NGROK_AUTH_TOKENが設定されていません。公開URLは生成されません。")
+            print("⚠️ ngrokを使用するには、https://dashboard.ngrok.com/signup でアカウント登録し、")
+            print("⚠️ 認証トークンを取得して環境変数NGROK_AUTH_TOKENに設定してください。")
+            
+            # ローカルURLをテンプレートに渡す
+            local_url = "http://localhost:5000"
+            app.config['NGROK_URL'] = local_url
+            app.config['IS_DEMO_MODE'] = True
+            return local_url
+    except Exception as e:
+        print(f"❌ ngrok起動エラー: {str(e)}")
+        app.config['IS_DEMO_MODE'] = True
+        return None
+
+@app.route('/ngrok_url')
+def get_ngrok_url():
+    """現在のngrok URLを返す"""
+    global public_url
+    if public_url:
+        # デモモードかどうかの情報も含める
+        is_demo_mode = app.config.get('IS_DEMO_MODE', False)
+        return jsonify({
+            'url': public_url,
+            'is_demo_mode': is_demo_mode
+        })
+    return jsonify({'error': 'ngrok URLが利用できません'})
+
 if __name__ == '__main__':
     # テンプレートディレクトリが存在しない場合は作成
     os.makedirs('templates', exist_ok=True)
@@ -156,4 +221,8 @@ if __name__ == '__main__':
     if not os.path.exists(CONFIG_FILE):
         save_config(load_config())
     
+    # ngrokを別スレッドで起動
+    threading.Thread(target=start_ngrok).start()
+    
+    # Flaskアプリを起動
     app.run(host='0.0.0.0', port=5000, debug=True)
