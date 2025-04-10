@@ -1,6 +1,7 @@
 {
   "urls": [
-    "https://news.yahoo.co.jp/pickup/domestic"
+    "https://news.yahoo.co.jp/pickup/domestic",
+    "https://news.yahoo.co.jp/pickup/world"
   ],
   "schedule": 3600,
   "output_dir": "data",
