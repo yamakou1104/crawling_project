@@ -18,11 +18,12 @@ services:
       - SCRAPER_VERBOSE=true
       # 要約機能を使用する場合（オプション）
       - SCRAPER_SUMMARIZE=true
-      - GEMINI_API_KEY=AIzaSyD2wrSQ0EL9qUwI_1EOh4eQT0AMEUEKFug
       - SCRAPER_SUMMARY_LANGUAGE=Japanese
       - SCRAPER_SUMMARY_STYLE=bullet
       - SCRAPER_SUMMARY_LENGTH=200
     tty: true
+    env_file:
+      - .env
     depends_on:
       - redis
 
